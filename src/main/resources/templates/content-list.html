@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Content List</title>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/content">Content List</a></li>
+        </ul>
+    </nav>
+
+    <h1>Content List</h1>
+    <table>
+        <tr>
+            <th>Text</th>
+            <th>Actions</th>
+        </tr>
+        <tr th:each="content : ${contentList}">
+            <td th:text="${content['text']['text']}">Text</td>
+            <td>
+                <a th:href="@{/content/edit(id=${content['_id']})}">Edit</a>
+                <form th:action="@{/content/post}" method="post" onsubmit="return addEmailToForm(this);">
+                    <input type="hidden" name="id" th:value="${content['_id']}">
+                    <input type="hidden" name="email" id="emailInput">
+                    <button type="submit">Post to LinkedIn</button>
+                </form>
+            </td>
+        </tr>
+    </table>
+
+    <a href="/">Back to Home</a>
+
+    <script>
+    function addEmailToForm(form) {
+        const email = localStorage.getItem('linkedInEmail');
+        if (email) {
+            form.querySelector('#emailInput').value = email;
+            return true;
+        } else {
+            alert('LinkedIn email not found. Please set your email on the home page.');
+            return false;
+        }
+    }
+    </script>
+</body>
+</html>

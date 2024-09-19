@@ -1,0 +1,9 @@
+instrumentation:
+  - class: com.example.ClassA
+    method: methodA
+    returnOrArgument: argument_0
+    addBaggage: TRUE
+  - class: com.example.ClassB
+    method: methodB
+    returnOrArgument: return
+    addBaggage: FALSE

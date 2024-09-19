@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Edit Content</title>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/content">Content List</a></li>
+        </ul>
+    </nav>
+
+    <h1>Edit Content</h1>
+    <form th:action="@{/content/update/{id}(id=${editId})}" method="post">
+        <div th:each="content : ${contents}" th:if="${content.id == editId}">
+            <label for="text">Content:</label>
+            <textarea id="text" name="text" th:text="${content.text}" rows="4" cols="50"></textarea>
+        </div>
+        <button type="submit">Update</button>
+    </form>
+    <a href="/content">Back to Content List</a>
+</body>
+</html>
