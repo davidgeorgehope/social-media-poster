@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.HashMap;
 
 @Controller
 @RequestMapping("/content")
@@ -34,18 +35,18 @@ public class ContentController {
         return "content-list";
     }
 
-    @GetMapping("/edit/{id}")
-    public String editContent(@PathVariable String id, Model model) throws IOException {
+    @GetMapping("/edit")
+    public String editContent(@RequestParam String id, Model model) throws IOException {
         // Fetch specific content by id and add to model
         // For simplicity, we're reusing the list method. In a real app, you'd fetch a specific item.
-        logger.error(  elasticsearchService.getContentFromIndex().toString());
+        logger.error(elasticsearchService.getContentFromIndex().toString());
         model.addAttribute("contents", elasticsearchService.getContentFromIndex());
         model.addAttribute("editId", id);
         return "content-edit";
     }
 
-    @PostMapping("/update/{id}")
-    public String updateContent(@PathVariable String id, @RequestParam Map<String, Object> content) throws IOException {
+    @PostMapping("/update")
+    public String updateContent(@RequestParam String id, @RequestParam Map<String, Object> content) throws IOException {
         elasticsearchService.updateContent(id, content);
         return "redirect:/content";
     }
@@ -54,12 +55,38 @@ public class ContentController {
     public String postToLinkedIn(@PathVariable String id, @RequestParam String email) throws IOException {
         // Fetch content by id
         Map<String, Object> content = elasticsearchService.getContentFromIndex().stream()
-                .filter(c -> c.get("id").equals(id))
+                .filter(c -> id.equals(c.get("_id"))) // Change this line
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Content not found"));
 
-        String message = (String) content.get("text");
+        // Check if 'text' field exists and is a Map
+        Object textObject = content.get("text");
+        String message;
+        if (textObject instanceof Map) {
+            message = (String) ((Map<?, ?>) textObject).get("text");
+        } else if (textObject instanceof String) {
+            message = (String) textObject;
+        } else {
+            throw new RuntimeException("Invalid content format");
+        }
+
+        if (message == null || message.isEmpty()) {
+            throw new RuntimeException("Content text is empty");
+        }
+
         linkedInService.postToLinkedIn(message, email);
+        return "redirect:/content";
+    }
+
+    @GetMapping("/create")
+    public String showCreateForm() {
+        return "content-create";
+    }
+
+    @PostMapping("/create")
+    public String createContent(@RequestParam String text) throws IOException {
+
+        elasticsearchService.indexContent(text);
         return "redirect:/content";
     }
 }

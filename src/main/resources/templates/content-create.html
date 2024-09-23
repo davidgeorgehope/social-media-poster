@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Edit Content</title>
+    <title>Create New Content</title>
     <link rel="stylesheet" th:href="@{/css/styles.css}">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
@@ -10,18 +10,17 @@
         <ul>
             <li><a href="/">Home</a></li>
             <li><a href="/content">Content List</a></li>
+            <li><a href="/content/create">Create Content</a></li>
         </ul>
     </nav>
 
-    <h1>Edit Content</h1>
+    <h1>Create New Content</h1>
     <div class="content-container">
         <div class="content-form">
-            <form th:action="@{/content/update(id=${editId})}" method="post">
-                <div th:each="content : ${contents}" th:if="${content['_id'] == editId}">
-                    <label for="text">Content:</label>
-                    <textarea id="text" name="text" th:text="${content['text']['text']}" rows="4"></textarea>
-                </div>
-                <button type="submit">Update</button>
+            <form th:action="@{/content/create}" method="post">
+                <label for="text">Content:</label>
+                <textarea id="text" name="text" rows="4" required></textarea>
+                <button type="submit">Create</button>
             </form>
         </div>
         <div class="chat-container">

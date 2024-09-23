@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.client.RestTemplate;
 
@@ -24,6 +25,7 @@ import co.elastic.clients.transport.rest_client.RestClientTransport;
 
 @SpringBootApplication
 @ComponentScan(basePackages = "org.davidgeorgehope.socialmediaposter")
+@EnableScheduling
 public class SocialMediaPosterApplication {
 
         private static final Logger log = LoggerFactory.getLogger(SocialMediaPosterApplication.class);
