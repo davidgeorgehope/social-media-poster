@@ -3,6 +3,7 @@
 <head>
     <title>Content List</title>
     <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
     <nav>
@@ -26,10 +27,11 @@
                 <td th:text="${content['text']['text']}">Text</td>
                 <td>
                     <a th:href="@{/content/edit(id=${content['_id']})}">Edit</a>
-                    <form th:action="@{/content/post/{id}(id=${content['_id']})}" method="post" onsubmit="return addEmailToForm(this);">
+                    <form th:action="@{/content/post/{id}(id=${content['_id']})}" method="post" onsubmit="return addEmailToForm(this);" style="display: inline;">
                         <input type="hidden" name="email" id="emailInput">
                         <button type="submit">Post to LinkedIn</button>
                     </form>
+                    <button class="delete-btn" th:data-id="${content['_id']}">Delete</button>
                 </td>
             </tr>
         </tbody>
@@ -39,7 +41,7 @@
 
     <a href="/">Back to Home</a>
 
-    <script>
+    <script th:inline="javascript">
     function addEmailToForm(form) {
         const email = localStorage.getItem('userEmail');
         if (email) {
@@ -59,7 +61,29 @@
             emailDisplay.textContent = `Logged in as: ${email}`;
             document.body.insertBefore(emailDisplay, document.body.firstChild);
         }
+
+        // Add event listeners for delete buttons
+        $('.delete-btn').click(function() {
+            const contentId = $(this).data('id');
+            if (confirm('Are you sure you want to delete this content?')) {
+                deleteContent(contentId);
+            }
+        });
     });
+
+    function deleteContent(contentId) {
+        $.ajax({
+            url: '/content/delete/' + contentId,
+            method: 'POST',
+            success: function(response) {
+                alert('Content deleted successfully');
+                location.reload(); // Reload the page to reflect the changes
+            },
+            error: function(xhr, status, error) {
+                alert('Error deleting content: ' + error);
+            }
+        });
+    }
     </script>
 </body>
 </html>

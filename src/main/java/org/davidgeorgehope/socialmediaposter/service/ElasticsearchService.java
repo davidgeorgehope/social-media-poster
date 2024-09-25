@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import co.elastic.clients.json.JsonData;
 import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch.core.DeleteRequest;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -105,5 +106,14 @@ public class ElasticsearchService {
                 .index("social-pilot-content")
                 .withJson(new StringReader(jsonDocument))  // Sends JSON directly
         );
+    }
+
+    public void deleteContent(String id) throws IOException {
+        DeleteRequest deleteRequest = DeleteRequest.of(d -> d
+            .index("social-pilot-content")
+            .id(id)
+        );
+
+        esClient.delete(deleteRequest);
     }
 }

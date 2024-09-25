@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 
 import java.io.IOException;
 import java.util.Map;
@@ -98,5 +100,18 @@ public class ContentController {
         }
         elasticsearchService.indexContent(text);
         return "redirect:/content";
+    }
+
+    @PostMapping("/delete/{id}")
+    @ResponseBody
+    public ResponseEntity<String> deleteContent(@PathVariable String id) {
+        try {
+            elasticsearchService.deleteContent(id);
+            return ResponseEntity.ok("Content deleted successfully");
+        } catch (IOException e) {
+            logger.error("Error deleting content with id: " + id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                 .body("Error deleting content: " + e.getMessage());
+        }
     }
 }

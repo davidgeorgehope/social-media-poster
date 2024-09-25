@@ -5,31 +5,105 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Social Media Poster</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        textarea { width: 100%; height: 100px; margin-bottom: 10px; }
-        button { padding: 10px 20px; }
-        #result { margin-top: 20px; padding: 10px; background-color: #f0f0f0; }
-        #emailInput { margin-bottom: 10px; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+        }
+        .logo {
+            max-width: 200px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: #1877f2;
+            margin-bottom: 30px;
+        }
+        nav ul {
+            list-style-type: none;
+            padding: 0;
+            margin-bottom: 30px;
+        }
+        nav ul li {
+            display: inline;
+            margin-right: 20px;
+        }
+        nav ul li a {
+            text-decoration: none;
+            color: #1877f2;
+            font-weight: bold;
+        }
+        #loginForm {
+            margin-bottom: 30px;
+        }
+        input[type="email"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #dddfe2;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #1877f2;
+            color: #ffffff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #166fe5;
+        }
+        #welcomeMessage {
+            background-color: #e7f3ff;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f0f2f5;
+            border-radius: 6px;
+        }
     </style>
 </head>
 <body>
-    <h1>Welcome to Social Media Poster</h1>
-    <nav>
-        <ul>
-            <li><a href="/content">View Content List</a></li>
-            <!-- Add other navigation links as needed -->
-        </ul>
-    </nav>
-    <div id="loginForm">
-        <input type="email" id="emailInput" placeholder="Enter your email" required>
-        <button id="loginBtn">Login with LinkedIn</button>
+    <div class="container">
+        <picture>
+            <source srcset="/images/logo.webp" type="image/webp">
+            <source srcset="/images/logo.png" type="image/png">
+            <img src="/images/logo.png" alt="Social Media Poster Logo" class="logo">
+        </picture>
+        <h1>Welcome to Social Media Poster</h1>
+        <nav>
+            <ul>
+                <li><a href="/content">View Content List</a></li>
+                <!-- Add other navigation links as needed -->
+            </ul>
+        </nav>
+        <div id="loginForm">
+            <input type="email" id="emailInput" placeholder="Enter your email" required>
+            <button id="loginBtn">Login with LinkedIn</button>
+        </div>
+        <div id="welcomeMessage" style="display: none;">
+            <h2>Welcome back!</h2>
+            <p>You are now logged in. Use the navigation menu to access different features.</p>
+        </div>
+        <div id="result"></div>
     </div>
-    <div id="postForm" style="display: none;">
-        <h2>Create a LinkedIn Post</h2>
-        <textarea id="postContent" placeholder="Enter your post content here..."></textarea>
-        <button id="postBtn">Post to LinkedIn</button>
-    </div>
-    <div id="result"></div>
 
     <script>
     const clientId = '78m0zw3o4c07pm';
@@ -40,15 +114,15 @@
 
     function updateLoginState(isLoggedIn) {
         const loginForm = document.getElementById('loginForm');
-        const postForm = document.getElementById('postForm');
+        const welcomeMessage = document.getElementById('welcomeMessage');
         const loginBtn = document.getElementById('loginBtn');
 
         if (isLoggedIn) {
             loginForm.style.display = 'none';
-            postForm.style.display = 'block';
+            welcomeMessage.style.display = 'block';
         } else {
             loginForm.style.display = 'block';
-            postForm.style.display = 'none';
+            welcomeMessage.style.display = 'none';
         }
         loginBtn.disabled = isLoggedIn;
     }
@@ -109,36 +183,6 @@
                 });
         }
     }
-
-    document.getElementById('postBtn').addEventListener('click', () => {
-        const content = document.getElementById('postContent').value;
-        if (!content) {
-            alert('Please enter some content for your post.');
-            return;
-        }
-
-        if (!userEmail) {
-            alert('Please login first.');
-            return;
-        }
-
-        fetch('/api/linkedin/post', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ content: content, email: userEmail }),
-        })
-        .then(response => response.text())
-        .then(result => {
-            document.getElementById('result').textContent = `Post result: ${result}`;
-            console.log(result);
-        })
-        .catch(error => {
-            document.getElementById('result').textContent = `Error posting: ${error}`;
-            console.error(error);
-        });
-    });
 
     // Store email in localStorage when it changes
     document.getElementById('emailInput').addEventListener('change', (e) => {
