@@ -17,7 +17,7 @@
     <h1>Create New Content</h1>
     <div class="content-container">
         <div class="content-form">
-            <form th:action="@{/content/create}" method="post">
+            <form th:action="@{/content/create}" method="post" enctype="multipart/form-data">
                 <label for="text">Content or URL:</label>
                 <textarea id="text" name="text" rows="4" required></textarea>
                 <p class="info">You can enter your content directly or paste a URL. If a URL is detected, the content will be fetched and used to generate a post.</p>
@@ -25,6 +25,8 @@
                     <input type="checkbox" id="useAI" name="useAI" checked>
                     <label for="useAI">Use AI to improve content or generate post from URL</label>
                 </div>
+                <label for="mediaFile">Upload Image or Video:</label>
+                <input type="file" id="mediaFile" name="mediaFile" accept="image/*,video/*">
                 <button type="submit">Create</button>
             </form>
         </div>

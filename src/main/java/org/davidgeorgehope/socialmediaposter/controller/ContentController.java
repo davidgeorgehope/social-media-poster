@@ -11,10 +11,12 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.HashMap;
+import java.time.Instant;
 
 @Controller
 @RequestMapping("/content")
@@ -51,12 +53,26 @@ public class ContentController {
     }
 
     @PostMapping("/update")
-    public String updateContent(@RequestParam String id, @RequestParam Map<String, Object> content, @RequestParam(defaultValue = "true") boolean useAI) throws IOException {
+    public String updateContent(@RequestParam String id, 
+                                @RequestParam Map<String, Object> content,
+                                @RequestParam(required = false) MultipartFile mediaFile,
+                                @RequestParam(defaultValue = "true") boolean useAI) throws IOException {
         String text = (String) content.get("text");
         if (useAI) {
             text = elasticsearchOpenAIService.processContent(text);
         }
         content.put("text", text);
+        
+        if (mediaFile != null && !mediaFile.isEmpty()) {
+            String mediaUrl = elasticsearchService.uploadMedia(mediaFile);
+            content.put("mediaUrl", mediaUrl);
+            content.put("mediaType", mediaFile.getContentType().startsWith("image/") ? "image" : "video");
+        } else {
+            // Remove existing media if no new media is uploaded
+            content.remove("mediaUrl");
+            content.remove("mediaType");
+        }
+        
         elasticsearchService.updateContent(id, content);
         return "redirect:/content";
     }
@@ -65,7 +81,7 @@ public class ContentController {
     public String postToLinkedIn(@PathVariable String id, @RequestParam String email) throws IOException {
         // Fetch content by id
         Map<String, Object> content = elasticsearchService.getContentFromIndex().stream()
-                .filter(c -> id.equals(c.get("_id"))) // Change this line
+                .filter(c -> id.equals(c.get("_id")))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Content not found"));
 
@@ -84,7 +100,15 @@ public class ContentController {
             throw new RuntimeException("Content text is empty");
         }
 
-        linkedInService.postToLinkedIn(message, email);
+        String mediaUrl = (String) content.get("mediaUrl");
+        String mediaType = (String) content.get("mediaType");
+
+        linkedInService.postToLinkedIn(message, email, mediaUrl, mediaType);
+
+        // Update last_posted_date
+        content.put("last_posted_date", Instant.now().toString());
+        elasticsearchService.updateContent(id, content);
+
         return "redirect:/content";
     }
 
@@ -94,11 +118,23 @@ public class ContentController {
     }
 
     @PostMapping("/create")
-    public String createContent(@RequestParam String text, @RequestParam(defaultValue = "true") boolean useAI) throws IOException {
+    public String createContent(@RequestParam String text, 
+                                @RequestParam(required = false) MultipartFile mediaFile,
+                                @RequestParam(defaultValue = "true") boolean useAI) throws IOException {
         if (useAI) {
             text = elasticsearchOpenAIService.processContent(text);
         }
-        elasticsearchService.indexContent(text);
+        
+        Map<String, Object> content = new HashMap<>();
+        content.put("text", text);
+        
+        if (mediaFile != null && !mediaFile.isEmpty()) {
+            String mediaUrl = elasticsearchService.uploadMedia(mediaFile);
+            content.put("mediaUrl", mediaUrl);
+            content.put("mediaType", mediaFile.getContentType().startsWith("image/") ? "image" : "video");
+        }
+        
+        elasticsearchService.indexContent(content);
         return "redirect:/content";
     }
 

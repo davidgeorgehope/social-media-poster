@@ -49,7 +49,7 @@ public class LinkedInController {
     @PostMapping("/post")
     public ResponseEntity<String> postToLinkedIn(@RequestBody PostRequest postRequest) {
         try {
-            linkedInService.postToLinkedIn(postRequest.getContent(), postRequest.getEmail());
+            linkedInService.postToLinkedIn(postRequest.getContent(), postRequest.getEmail(), postRequest.getMediaUrl(), postRequest.getMediaType());
             return ResponseEntity.ok("Post successfully sent to LinkedIn");
         } catch (RuntimeException e) {
             logger.error("Error posting to LinkedIn", e);
@@ -62,6 +62,8 @@ public class LinkedInController {
     private static class PostRequest {
         private String content;
         private String email;
+        private String mediaUrl;
+        private String mediaType;
 
         public String getContent() {
             return content;
@@ -77,6 +79,22 @@ public class LinkedInController {
 
         public void setEmail(String email) {
             this.email = email;
+        }
+
+        public String getMediaUrl() {
+            return mediaUrl;
+        }
+
+        public void setMediaUrl(String mediaUrl) {
+            this.mediaUrl = mediaUrl;
+        }
+
+        public String getMediaType() {
+            return mediaType;
+        }
+
+        public void setMediaType(String mediaType) {
+            this.mediaType = mediaType;
         }
     }
 }

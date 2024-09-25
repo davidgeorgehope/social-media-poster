@@ -6,24 +6,44 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
 import co.elastic.clients.json.JsonData;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch.core.DeleteRequest;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.HashMap;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 @Service
 public class ElasticsearchService {
 
     private final ElasticsearchClient esClient;
+
+    @Value("${media.upload.dir}")
+    private String mediaUploadDir;
+
+    public String uploadMedia(MultipartFile file) throws IOException {
+        String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+        Path filePath = Paths.get(mediaUploadDir, fileName);
+        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+        return "/media/" + fileName;
+    }
 
     @Autowired
     public ElasticsearchService(ElasticsearchClient esClient) {
@@ -34,50 +54,12 @@ public class ElasticsearchService {
     public List<Map<String, Object>> getContentFromIndex() throws IOException {
         SearchResponse<Map<String, Object>> response = esClient.search(s -> s
                 .index("social-pilot-content")
-                .size(10), // Adjust size as needed
-                (Class<Map<String, Object>>)(Class<?>)Map.class
-        );
-
-        // Return a list of maps that include both the document ID and its content
-        return response.hits().hits().stream()
-                .map(hit -> {
-                    Map<String, Object> sourceWithId = hit.source();
-                    sourceWithId.put("_id", hit.id());
-                    return sourceWithId;
-                })
-                .collect(Collectors.toList());
-    }
-
-    // Update document in Elasticsearch
-    public void updateContent(String id, Map<String, Object> content) throws IOException {
-        esClient.update(u -> u
-                .index("social-pilot-content")
-                .id(id)
-                .doc(content),
-                (Class<Map<String, Object>>)(Class<?>)Map.class // Fix for the generic Map type
-        );
-    }
-
-    public List<Map<String, Object>> getContentForScheduling() throws IOException {
-        Instant oneWeekAgo = Instant.now().minus(7, ChronoUnit.DAYS);
-        
-        SearchResponse<Map<String, Object>> response = esClient.search(s -> s
-                .index("social-pilot-content")
-                .size(50) // Increased size to have more options
-                .query(q -> q
-                    .bool(b -> b
-                        .mustNot(mn -> mn
-                            .range(r -> r
-                                .field("last_posted_date")
-                                .gte(JsonData.of(oneWeekAgo.toString()))
-                            )
-                        )
-                    )
-                )
+                .size(10) // Adjust size as needed
                 .sort(sort -> sort
                     .field(f -> f
                         .field("last_posted_date")
-                        .order(SortOrder.Asc)
+                        .order(SortOrder.Desc)
+                        .missing("_last")
                     )
                 ),
                 (Class<Map<String, Object>>)(Class<?>)Map.class
@@ -93,19 +75,52 @@ public class ElasticsearchService {
                 .collect(Collectors.toList());
     }
 
-    public void indexContent(String text) throws IOException {
-        ObjectMapper objectMapper = new ObjectMapper();
-        Map<String, Object> document = new HashMap<>();
-        document.put("text", text);
-
-        // Serialize the document map to a JSON string
-        String jsonDocument = objectMapper.writeValueAsString(document);
-
-        // Ensure the request body is correctly formatted as JSON
-        esClient.index(i -> i
+    // Update document in Elasticsearch
+    public void updateContent(String id, Map<String, Object> content) throws IOException {
+        content.put("last_updated", Instant.now().toString());
+        esClient.update(u -> u
                 .index("social-pilot-content")
-                .withJson(new StringReader(jsonDocument))  // Sends JSON directly
+                .id(id)
+                .doc(content),
+                (Class<Map<String, Object>>)(Class<?>)Map.class // Fix for the generic Map type
         );
+    }
+
+    public List<Map<String, Object>> getContentForScheduling() throws IOException {
+        SearchResponse<Map<String, Object>> response = esClient.search(s -> s
+                .index("social-pilot-content")
+                .size(100) // Adjust size as needed
+                .sort(sort -> sort
+                    .field(f -> f
+                        .field("last_posted_date")
+                        .order(SortOrder.Asc)
+                        .missing("_first")
+                    )
+                ),
+                (Class<Map<String, Object>>)(Class<?>)Map.class
+        );
+
+        return response.hits().hits().stream()
+                .map(hit -> {
+                    Map<String, Object> sourceWithId = hit.source();
+                    sourceWithId.put("_id", hit.id());
+                    return sourceWithId;
+                })
+                .collect(Collectors.toList());
+    }
+
+    public String indexContent(Map<String, Object> content) throws IOException {
+        content.put("last_updated", Instant.now().toString());
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        String jsonDocument = objectMapper.writeValueAsString(content);
+
+        var response = esClient.index(i -> i
+                .index("social-pilot-content")
+                .withJson(new StringReader(jsonDocument))
+        );
+
+        return response.id();
     }
 
     public void deleteContent(String id) throws IOException {

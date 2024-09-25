@@ -19,12 +19,15 @@
         <thead>
             <tr>
                 <th>Text</th>
+                <th>Last Posted</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
             <tr th:each="content : ${contentList}">
                 <td th:text="${content['text']['text']}">Text</td>
+                <td th:text="${content['last_posted_date'] != null and !#strings.isEmpty(content['last_posted_date']) ? 
+                      content['last_posted_date'] : 'Never'}">Last Posted</td>
                 <td>
                     <a th:href="@{/content/edit(id=${content['_id']})}">Edit</a>
                     <form th:action="@{/content/post/{id}(id=${content['_id']})}" method="post" onsubmit="return addEmailToForm(this);" style="display: inline;">

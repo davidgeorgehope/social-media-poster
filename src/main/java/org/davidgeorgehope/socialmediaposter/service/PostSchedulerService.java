@@ -7,9 +7,12 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 @Service
 public class PostSchedulerService {
@@ -31,10 +34,10 @@ public class PostSchedulerService {
 
     @Scheduled(cron = "0 0 12 * * ?") // Run daily at noon
     public void schedulePost() throws IOException {
-        List<Map<String, Object>> availableContent = elasticsearchService.getContentForScheduling();
+        List<Map<String, Object>> eligibleContent = getEligibleContent();
 
-        if (!availableContent.isEmpty()) {
-            Map<String, Object> selectedContent = selectContent(availableContent);
+        if (!eligibleContent.isEmpty()) {
+            Map<String, Object> selectedContent = selectContent(eligibleContent);
             postContent(selectedContent);
         } else {
             Map<String, Object> generatedContent = generateNewContent();
@@ -42,16 +45,35 @@ public class PostSchedulerService {
         }
     }
 
-    private Map<String, Object> selectContent(List<Map<String, Object>> availableContent) {
-        // For simplicity, we're just selecting a random piece of content
-        return availableContent.get(new Random().nextInt(availableContent.size()));
+    private List<Map<String, Object>> getEligibleContent() throws IOException {
+        List<Map<String, Object>> availableContent = elasticsearchService.getContentForScheduling();
+        LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        return availableContent.stream()
+            .filter(content -> {
+                String lastPostedDateStr = (String) content.get("last_posted_date");
+                if (lastPostedDateStr == null || lastPostedDateStr.isEmpty()) {
+                    return true; // Content that has never been posted is eligible
+                }
+                LocalDateTime lastPostedDate = LocalDateTime.parse(lastPostedDateStr, formatter);
+                return lastPostedDate.isBefore(thirtyDaysAgo);
+            })
+            .collect(Collectors.toList());
+    }
+
+    private Map<String, Object> selectContent(List<Map<String, Object>> eligibleContent) {
+        // Select a random piece of content from the eligible content
+        return eligibleContent.get(new Random().nextInt(eligibleContent.size()));
     }
 
     private void postContent(Map<String, Object> content) throws IOException {
         String contentId = (String) content.get("_id");
         String text = (String) content.get("text");
+        String mediaUrl = (String) content.get("mediaUrl");
+        String mediaType = (String) content.get("mediaType");
 
-        linkedInService.postToLinkedIn(text, userEmail);
+        linkedInService.postToLinkedIn(text, userEmail, mediaUrl, mediaType);
 
         // Update the last_posted_date in Elasticsearch
         content.put("last_posted_date", Instant.now().toString());
@@ -62,10 +84,16 @@ public class PostSchedulerService {
         String prompt = "Generate a LinkedIn post about Elastic Observability for Site Reliability Engineers. Focus on how it helps prevent downtime, consolidates tool stacks, and reduces toil.";
         String generatedText = elasticsearchOpenAIService.processQuestion(prompt);
         
-        Map<String, Object> newContent = Map.of("text", generatedText);
+        Map<String, Object> newContent = Map.of(
+            "text", generatedText,
+            "last_posted_date", Instant.now().toString(),
+            "mediaUrl", "",
+            "mediaType", ""
+        );
         
         // Index the new content
-        elasticsearchService.indexContent(generatedText);
+        String contentId = elasticsearchService.indexContent(newContent);
+        newContent.put("_id", contentId);
         
         return newContent;
     }

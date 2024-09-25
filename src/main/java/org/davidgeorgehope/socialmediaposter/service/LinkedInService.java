@@ -11,6 +11,11 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpStatusCodeException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+
+
+import com.fasterxml.jackson.databind.JsonNode;
+
 
 import java.util.Map;
 import java.nio.file.Files;
@@ -180,7 +185,7 @@ public class LinkedInService {
         return userData != null && userData.length >= 3 && !isTokenExpired(userData[2]);
     }
 
-    public void postToLinkedIn(String postContent, String email) {
+    public void postToLinkedIn(String postContent, String email, String mediaUrl, String mediaType) {
         logger.info("Attempting to post to LinkedIn for email: {}", email);
         String[] userData = getUserData(email);
         if (userData == null || userData.length == 0 || userData[0].isEmpty()) {
@@ -201,7 +206,23 @@ public class LinkedInService {
         
         ObjectNode shareContent = objectMapper.createObjectNode();
         shareContent.set("shareCommentary", objectMapper.createObjectNode().put("text", postContent));
-        shareContent.put("shareMediaCategory", "NONE");
+        
+        if (mediaUrl != null && !mediaUrl.isEmpty()) {
+            shareContent.put("shareMediaCategory", mediaType.toUpperCase());
+            ArrayNode media = shareContent.putArray("media");
+            ObjectNode mediaNode = media.addObject();
+            mediaNode.put("status", "READY");
+            mediaNode.put("description", "text");
+            try {
+                mediaNode.set("media", objectMapper.createObjectNode()
+                    .put("id", uploadMediaToLinkedIn(accessToken, memberId, mediaUrl, mediaType)));
+            } catch (IOException e) {
+                // Handle the exception, e.g., log it or rethrow it
+                e.printStackTrace();
+            }
+        } else {
+            shareContent.put("shareMediaCategory", "NONE");
+        }
 
         ObjectNode specificContent = objectMapper.createObjectNode();
         specificContent.set("com.linkedin.ugc.ShareContent", shareContent);
@@ -233,6 +254,100 @@ public class LinkedInService {
         } catch (Exception e) {
             logger.error("Unexpected error posting to LinkedIn for email: {}", email, e);
             throw new RuntimeException("Failed to post to LinkedIn", e);
+        }
+    }
+
+    private String uploadMediaToLinkedIn(String accessToken, String memberId, String mediaUrl, String mediaType) throws IOException {
+        // Step 1: Register the media with LinkedIn
+        String registeredMediaId = registerMedia(accessToken, memberId, mediaType);
+
+        // Step 2: Get the upload URL
+        String uploadUrl = getUploadUrl(accessToken, registeredMediaId);
+
+        // Step 3: Upload the media binary
+        uploadMediaBinary(uploadUrl, mediaUrl);
+
+        // Step 4: Confirm the upload
+        String assetId = confirmMediaUpload(accessToken, registeredMediaId);
+
+        return assetId;
+    }
+
+    private String registerMedia(String accessToken, String memberId, String mediaType) throws IOException {
+        String apiUrl = "https://api.linkedin.com/v2/assets?action=registerUpload";
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ObjectNode requestBody = objectMapper.createObjectNode();
+        requestBody.set("registerUploadRequest", objectMapper.createObjectNode()
+            .put("recipes", mediaType.equals("image") ? "urn:li:digitalmediaRecipe:feedshare-image" : "urn:li:digitalmediaRecipe:feedshare-video")
+            .put("owner", "urn:li:person:" + memberId)
+            .set("serviceRelationships", objectMapper.createArrayNode()
+                .add(objectMapper.createObjectNode()
+                    .put("relationshipType", "OWNER")
+                    .put("identifier", "urn:li:userGeneratedContent"))));
+
+        HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), headers);
+        ResponseEntity<JsonNode> response = restTemplate.exchange(apiUrl, HttpMethod.POST, request, JsonNode.class);
+
+        if (response.getStatusCode() == HttpStatus.OK) {
+            return response.getBody().path("value").path("asset").asText();
+        } else {
+            throw new IOException("Failed to register media with LinkedIn");
+        }
+    }
+
+    private String getUploadUrl(String accessToken, String registeredMediaId) throws IOException {
+        String apiUrl = "https://api.linkedin.com/v2/assets/" + registeredMediaId + "?action=uploadUrl";
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+
+        HttpEntity<String> request = new HttpEntity<>(headers);
+        ResponseEntity<JsonNode> response = restTemplate.exchange(apiUrl, HttpMethod.GET, request, JsonNode.class);
+
+        if (response.getStatusCode() == HttpStatus.OK) {
+            return response.getBody().path("value").path("uploadMechanism").path("com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest").path("uploadUrl").asText();
+        } else {
+            throw new IOException("Failed to get upload URL from LinkedIn");
+        }
+    }
+
+    private void uploadMediaBinary(String uploadUrl, String mediaUrl) throws IOException {
+        byte[] mediaBytes = Files.readAllBytes(Paths.get(mediaUrl));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+
+        HttpEntity<byte[]> request = new HttpEntity<>(mediaBytes, headers);
+        ResponseEntity<String> response = restTemplate.exchange(uploadUrl, HttpMethod.PUT, request, String.class);
+
+        if (response.getStatusCode() != HttpStatus.OK) {
+            throw new IOException("Failed to upload media binary to LinkedIn");
+        }
+    }
+
+    private String confirmMediaUpload(String accessToken, String registeredMediaId) throws IOException {
+        String apiUrl = "https://api.linkedin.com/v2/assets/" + registeredMediaId;
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ObjectNode requestBody = objectMapper.createObjectNode();
+        requestBody.set("patch", objectMapper.createObjectNode()
+            .set("$set", objectMapper.createObjectNode()
+                .put("status", "AVAILABLE")));
+
+        HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), headers);
+        ResponseEntity<JsonNode> response = restTemplate.exchange(apiUrl, HttpMethod.POST, request, JsonNode.class);
+
+        if (response.getStatusCode() == HttpStatus.OK) {
+            return registeredMediaId;
+        } else {
+            throw new IOException("Failed to confirm media upload with LinkedIn");
         }
     }
 }
