@@ -8,6 +8,11 @@ import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.service.OpenAiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import java.net.URL;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -26,6 +31,8 @@ public class ElasticsearchOpenAIService {
     static {
         INDEX_SOURCE_FIELDS.put("social-pilot-content", List.of("text"));
     }
+
+    private static final Pattern URL_PATTERN = Pattern.compile("^(https?://)?[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,4}(/\\S*)?$");
 
     @Autowired
     public ElasticsearchOpenAIService(ElasticsearchClient esClient, OpenAiService openAiService) {
@@ -175,5 +182,25 @@ public class ElasticsearchOpenAIService {
         //List<Hit<Object>> elasticsearchResults = getElasticsearchResults(question);
         String contextPrompt = createOpenAIPrompt(null);
         return generateOpenAICompletion(contextPrompt, question);
+    }
+
+    public String processContent(String content) throws IOException {
+        if (isUrl(content)) {
+            String fetchedContent = fetchContentFromUrl(content);
+            String prompt = "Create a LinkedIn post based on the following content. Include key points and insights. Add the original URL at the end of the post:\n\n" + fetchedContent + "\n\nOriginal URL: " + content;
+            return processQuestion(prompt);
+        } else {
+            String question = "Please review and improve the following content for a LinkedIn post:\n\n" + content;
+            return processQuestion(question);
+        }
+    }
+
+    private boolean isUrl(String content) {
+        Matcher matcher = URL_PATTERN.matcher(content.trim());
+        return matcher.matches();
+    }
+
+    private String fetchContentFromUrl(String url) throws IOException {
+        return Jsoup.connect(url).execute().body();
     }
 }

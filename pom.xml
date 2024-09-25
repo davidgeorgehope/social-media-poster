@@ -63,6 +63,13 @@
             <artifactId>service</artifactId>
             <version>0.14.0</version>
         </dependency>
+
+        <!-- Jsoup -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.16.1</version>
+        </dependency>
     </dependencies>
 
     <build>

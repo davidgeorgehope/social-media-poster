@@ -21,6 +21,10 @@
                     <label for="text">Content:</label>
                     <textarea id="text" name="text" th:text="${content['text']['text']}" rows="4"></textarea>
                 </div>
+                <div>
+                    <input type="checkbox" id="useAI" name="useAI" checked>
+                    <label for="useAI">Use AI to improve content</label>
+                </div>
                 <button type="submit">Update</button>
             </form>
         </div>
