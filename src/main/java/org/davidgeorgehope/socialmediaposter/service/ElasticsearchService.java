@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import co.elastic.clients.json.JsonData;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch.core.DeleteRequest;
+import co.elastic.clients.elasticsearch.core.GetResponse;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -42,7 +43,7 @@ public class ElasticsearchService {
         String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
         Path filePath = Paths.get(mediaUploadDir, fileName);
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-        return "/media/" + fileName;
+        return mediaUploadDir + fileName;
     }
 
     @Autowired
@@ -77,11 +78,19 @@ public class ElasticsearchService {
 
     // Update document in Elasticsearch
     public void updateContent(String id, Map<String, Object> content) throws IOException {
-        content.put("last_updated", Instant.now().toString());
+        // Create a new map to avoid modifying the original content
+        Map<String, Object> updateContent = new HashMap<>(content);
+        
+        // Remove _id from the content if it exists
+        updateContent.remove("_id");
+        
+        // Add last_updated field
+        updateContent.put("last_updated", Instant.now().toString());
+        
         esClient.update(u -> u
                 .index("social-pilot-content")
                 .id(id)
-                .doc(content),
+                .doc(updateContent),
                 (Class<Map<String, Object>>)(Class<?>)Map.class // Fix for the generic Map type
         );
     }
@@ -130,5 +139,21 @@ public class ElasticsearchService {
         );
 
         esClient.delete(deleteRequest);
+    }
+
+    public Map<String, Object> getContentById(String id) throws IOException {
+        GetResponse<Map<String, Object>> response = esClient.get(g -> g
+                .index("social-pilot-content")
+                .id(id),
+                (Class<Map<String, Object>>)(Class<?>)Map.class
+        );
+
+        if (response.found()) {
+            Map<String, Object> source = response.source();
+            source.put("_id", response.id());
+            return source;
+        } else {
+            throw new RuntimeException("Content not found for id: " + id);
+        }
     }
 }

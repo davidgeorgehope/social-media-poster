@@ -46,6 +46,7 @@ public class LinkedInController {
         }
     }
 
+    /* 
     @PostMapping("/post")
     public ResponseEntity<String> postToLinkedIn(@RequestBody PostRequest postRequest) {
         try {
@@ -96,5 +97,5 @@ public class LinkedInController {
         public void setMediaType(String mediaType) {
             this.mediaType = mediaType;
         }
-    }
+    }*/
 }

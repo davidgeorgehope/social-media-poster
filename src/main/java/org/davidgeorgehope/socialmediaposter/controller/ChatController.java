@@ -18,6 +18,6 @@ public class ChatController {
     @PostMapping("/api/chat")
     public String chat(@RequestBody Map<String, String> request) throws IOException {
         String message = request.get("message");
-        return elasticsearchOpenAIService.processQuestion(message);
+        return elasticsearchOpenAIService.processAssistantQuestion(message);
     }
 }
