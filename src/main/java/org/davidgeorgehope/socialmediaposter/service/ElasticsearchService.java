@@ -55,7 +55,7 @@ public class ElasticsearchService {
     public List<Map<String, Object>> getContentFromIndex() throws IOException {
         SearchResponse<Map<String, Object>> response = esClient.search(s -> s
                 .index("social-pilot-content")
-                .size(10) // Adjust size as needed
+                .size(25) // Adjust size as needed
                 .sort(sort -> sort
                     .field(f -> f
                         .field("last_posted_date")

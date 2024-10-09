@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 
 @Service
 public class PostSchedulerService {
@@ -37,9 +38,8 @@ public class PostSchedulerService {
         this.linkedInService = linkedInService;
         this.userEmail = userEmail;
     }
-
-    //@Scheduled(cron = "0 25 14 * * ?") // Run daily at 1:20 PM
-    @Scheduled(fixedRate = 86400000, initialDelay = 10000) // Runs every 24 hours after an initial delay of 10 seconds
+    @Scheduled(cron = "0 00 08 * * ?", zone = "America/New_York") // Runs daily at 1:20 PM EST
+    //@Scheduled(fixedRate = 86400000, initialDelay = 10000) // Runs every 24 hours after an initial delay of 10 seconds
     public void schedulePost() throws IOException {
         logger.info("Starting schedulePost() method at {}", LocalDateTime.now());
         
@@ -127,12 +127,11 @@ public class PostSchedulerService {
         String prompt = "Generate a LinkedIn post about Elastic Observability for Site Reliability Engineers. Focus on how it helps prevent downtime, consolidates tool stacks, and reduces toil.";
         String generatedText = elasticsearchOpenAIService.processQuestion(prompt);
         
-        Map<String, Object> newContent = Map.of(
-            "text", generatedText,
-            "last_posted_date", Instant.now().toString(),
-            "mediaUrl", "",
-            "mediaType", ""
-        );
+        Map<String, Object> newContent = new HashMap<>();
+        newContent.put("text", generatedText);
+        newContent.put("last_posted_date", Instant.now().toString());
+        newContent.put("mediaUrl", "");
+        newContent.put("mediaType", "");
         
         // Index the new content
         String contentId = elasticsearchService.indexContent(newContent);

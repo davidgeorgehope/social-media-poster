@@ -30,6 +30,8 @@ import java.net.URLConnection;
 import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
 import org.davidgeorgehope.socialmediaposter.model.ByteArrayMultipartFile;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 
 @Controller
 @RequestMapping("/content")
@@ -81,7 +83,7 @@ public class ContentController {
     public String updateContent(@RequestParam String id, 
                                 @RequestParam Map<String, Object> content,
                                 @RequestParam(required = false) MultipartFile mediaFile,
-                                @RequestParam(defaultValue = "true") boolean useAI) throws IOException {
+                                @RequestParam(defaultValue = "false") boolean useAI) throws IOException {
         String text = (String) content.get("text");
         String imageUrl = null;
 
@@ -165,7 +167,7 @@ public class ContentController {
     @PostMapping("/create")
     public String createContent(@RequestParam String text, 
                                 @RequestParam(required = false) MultipartFile mediaFile,
-                                @RequestParam(defaultValue = "true") boolean useAI) throws IOException {
+                                @RequestParam(defaultValue = "false") boolean useAI) throws IOException {
         logger.info("Creating content with text: {}, mediaFile present: {}, useAI: {}", 
                     text, (mediaFile != null), useAI);
 
@@ -302,5 +304,12 @@ public class ContentController {
             logger.error("Failed to download image from URL: {}. Error: {}", imageUrl, e.getMessage(), e);
             return null;
         }
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<String> handleMultipartException(MultipartException e) {
+        logger.error("File upload error: " + e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                             .body("File upload failed: The file size exceeds the maximum allowed size.");
     }
 }
