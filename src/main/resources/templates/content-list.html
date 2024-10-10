@@ -6,87 +6,100 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
-    <nav>
-        <ul>
-            <li><a href="/">Home</a></li>
-            <li><a href="/content">Content List</a></li>
-            <li><a href="/content/create">Create Content</a></li>
-        </ul>
-    </nav>
+    <div class="container">
+        <h1>Content List</h1>
+        
+        <div class="action-buttons">
+            <a href="/content/create" class="fancy-button create-button">Create New Content</a>
+            <a href="/" class="fancy-button home-button">Back Home</a>
+        </div>
 
-    <h1>Content List</h1>
-    <table>
-        <thead>
-            <tr>
-                <th>Text</th>
-                <th>Last Posted</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr th:each="content : ${contentList}">
-                <td th:text="${content['text']['text']}">Text</td>
-                <td th:text="${content['last_posted_date'] != null and !#strings.isEmpty(content['last_posted_date']) ? 
-                      content['last_posted_date'] : 'Never'}">Last Posted</td>
-                <td>
-                    <a th:href="@{/content/edit(id=${content['_id']})}">Edit</a>
-                    <form th:action="@{/content/post/{id}(id=${content['_id']})}" method="post" onsubmit="return addEmailToForm(this);" style="display: inline;">
-                        <input type="hidden" name="email" id="emailInput">
-                        <button type="submit">Post to LinkedIn</button>
-                    </form>
-                    <button class="delete-btn" th:data-id="${content['_id']}">Delete</button>
-                </td>
-            </tr>
-        </tbody>
-    </table>
+        <table>
+            <thead>
+                <tr>
+                    <th>Text</th>
+                    <th>Last Posted</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="content : ${contentPage.content}">
+                    <td th:text="${#strings.abbreviate(content['text']['text'], 200)}">Text</td>
+                    <td th:text="${content['last_posted_date'] != null and !#strings.isEmpty(content['last_posted_date']) ? 
+                          content['last_posted_date'] : 'Never'}">Last Posted</td>
+                    <td class="actions-column">
+                        <div class="button-group">
+                            <a th:href="@{/content/edit(id=${content['_id']})}" class="button edit-btn">Edit</a>
+                            <form th:action="@{/content/post/{id}(id=${content['_id']})}" method="post" onsubmit="return addEmailToForm(this);">
+                                <input type="hidden" name="email" id="emailInput">
+                                <button type="submit" class="button post-btn">Post to LinkedIn</button>
+                            </form>
+                            <button class="button delete-btn" th:data-id="${content['_id']}">Delete</button>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
 
-    <a href="/content/create" class="button">Create New Content</a>
+        <!-- Pagination controls -->
+        <div class="pagination" th:if="${contentPage.totalPages > 1}">
+            <span th:if="${contentPage.hasPrevious()}">
+                <a th:href="@{/content(page=${contentPage.number}, size=${contentPage.size})}">Previous</a>
+            </span>
+            <span th:each="pageNumber : ${#numbers.sequence(1, contentPage.totalPages)}">
+                <a th:href="@{/content(page=${pageNumber}, size=${contentPage.size})}"
+                   th:text="${pageNumber}"
+                   th:class="${pageNumber==contentPage.number + 1} ? active"></a>
+            </span>
+            <span th:if="${contentPage.hasNext()}">
+                <a th:href="@{/content(page=${contentPage.number + 2}, size=${contentPage.size})}">Next</a>
+            </span>
+        </div>
 
-    <a href="/">Back to Home</a>
-
-    <script th:inline="javascript">
-    function addEmailToForm(form) {
-        const email = localStorage.getItem('userEmail');
-        if (email) {
-            form.querySelector('#emailInput').value = email;
-            return true;
-        } else {
-            alert('LinkedIn email not found. Please set your email on the home page.');
-            return false;
-        }
-    }
-
-    // Display the email if available
-    document.addEventListener('DOMContentLoaded', function() {
-        const email = localStorage.getItem('userEmail');
-        if (email) {
-            const emailDisplay = document.createElement('p');
-            emailDisplay.textContent = `Logged in as: ${email}`;
-            document.body.insertBefore(emailDisplay, document.body.firstChild);
-        }
-
-        // Add event listeners for delete buttons
-        $('.delete-btn').click(function() {
-            const contentId = $(this).data('id');
-            if (confirm('Are you sure you want to delete this content?')) {
-                deleteContent(contentId);
+        <script th:inline="javascript">
+        function addEmailToForm(form) {
+            const email = localStorage.getItem('userEmail');
+            if (email) {
+                form.querySelector('#emailInput').value = email;
+                return true;
+            } else {
+                alert('LinkedIn email not found. Please set your email on the home page.');
+                return false;
             }
-        });
-    });
+        }
 
-    function deleteContent(contentId) {
-        $.ajax({
-            url: '/content/delete/' + contentId,
-            method: 'POST',
-            success: function(response) {
-                alert('Content deleted successfully');
-                location.reload(); // Reload the page to reflect the changes
-            },
-            error: function(xhr, status, error) {
-                alert('Error deleting content: ' + error);
+        // Display the email if available
+        document.addEventListener('DOMContentLoaded', function() {
+            const email = localStorage.getItem('userEmail');
+            if (email) {
+                const emailDisplay = document.createElement('p');
+                emailDisplay.textContent = `Logged in as: ${email}`;
+                document.body.insertBefore(emailDisplay, document.body.firstChild);
             }
+
+            // Add event listeners for delete buttons
+            $('.delete-btn').click(function() {
+                const contentId = $(this).data('id');
+                if (confirm('Are you sure you want to delete this content?')) {
+                    deleteContent(contentId);
+                }
+            });
         });
-    }
-    </script>
+
+        function deleteContent(contentId) {
+            $.ajax({
+                url: '/content/delete/' + contentId,
+                method: 'POST',
+                success: function(response) {
+                    alert('Content deleted successfully');
+                    location.reload(); // Reload the page to reflect the changes
+                },
+                error: function(xhr, status, error) {
+                    alert('Error deleting content: ' + error);
+                }
+            });
+        }
+        </script>
+    </div>
 </body>
 </html>

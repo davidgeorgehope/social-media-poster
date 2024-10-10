@@ -7,6 +7,7 @@ import com.theokanning.openai.completion.chat.ChatCompletionRequest;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.service.OpenAiService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -30,7 +31,7 @@ public class ElasticsearchOpenAIService {
 
     private static final Logger logger = LoggerFactory.getLogger(ElasticsearchOpenAIService.class);
     private final ElasticsearchClient esClient;
-    private final OpenAiService openAiService;
+    private final AICompletionService aiCompletionService;
 
     private static final Map<String, List<String>> INDEX_SOURCE_FIELDS = new HashMap<>();
     static {
@@ -40,9 +41,9 @@ public class ElasticsearchOpenAIService {
     private static final Pattern URL_PATTERN = Pattern.compile("^(https?://)?[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,4}(/\\S*)?$");
 
     @Autowired
-    public ElasticsearchOpenAIService(ElasticsearchClient esClient, OpenAiService openAiService) {
+    public ElasticsearchOpenAIService(ElasticsearchClient esClient, AICompletionService aiCompletionService) {
         this.esClient = esClient;
-        this.openAiService = openAiService;
+        this.aiCompletionService = aiCompletionService;
     }
 
     public List<Hit<Object>> getElasticsearchResults(String query) throws IOException {
@@ -113,40 +114,39 @@ public class ElasticsearchOpenAIService {
 
     public String createOpenAIPrompt(List<Hit<Object>> results) {
         String context = buildContextFromHits(results);
-        return "Instructions:\n\n" +
-        "You are a social media content creator specializing in posts for Site Reliability Engineers (SREs)." +
-        "When the user provides content, focus primarily on that content, using the following themes and style guidelines to enhance the message. The themes are secondary and should support the user's content without overshadowing it.\n\n" +
-        "**Important:** Do not include too much detail from the source content. Provide just enough information to pique the reader's interest and encourage them to read the full blog post.\n\n" +
-        "**Important:** Do not use too many buzzwords or jargon. Use technical terms accurately and explain them when necessary.\n\n" +
-        "Writing Guidelines:\n" +
-        "- Adopt a knowledgeable yet conversational tone, as if explaining concepts to a colleague.\n" +
-        "- Begin with a thought-provoking question or personal anecdote when appropriate.\n" +
-        "- Focus on real-world scenarios and practical applications.\n" +
-        "- Share insights or lessons learned from experience working with SREs.\n" +
-        "- Discuss challenges in observability and how they can be addressed.\n" +
-        "- Use technical terms accurately and explain them when necessary.\n" +
-        "- Provide actionable advice or step-by-step guidance.\n" +
-        "- Use emojis sparingly to add personality or for formatting where appropriate.\n" +
-        "- Avoid marketing language; strive for authenticity and human connection.\n\n" +
-        "Secondary Themes (to incorporate if relevant):\n" +
+        return "You are a social media content creator specializing in posts for Site Reliability Engineers (SREs). Your task is to create engaging LinkedIn posts based on provided content while adhering to specific guidelines and themes.\n\n" +
+        "The content will be provided in the user prompt. Your primary focus should be on this content. Use the following guidelines to enhance and frame the message without overshadowing it:\n\n" +
+        "1. Adopt a knowledgeable yet conversational tone, as if explaining concepts to a colleague.\n" +
+        "2. Begin with a thought-provoking question or personal anecdote when appropriate.\n" +
+        "3. Focus on real-world scenarios and practical applications.\n" +
+        "4. Share insights or lessons learned from experience working with SREs.\n" +
+        "5. Discuss challenges in observability and how they can be addressed.\n" +
+        "6. Use technical terms accurately and explain them when necessary.\n" +
+        "7. Provide actionable advice or step-by-step guidance.\n" +
+        "8. Use emojis sparingly to add personality or for formatting where appropriate.\n" +
+        "9. Avoid marketing language; strive for authenticity and human connection.\n\n" +
+        "Incorporate the following themes if relevant to the user's content:\n" +
         "- How Elastic Observability can solve key challenges for SREs.\n" +
         "- Improving operational efficiency and reducing toil.\n" +
         "- Enhancing observability strategies in organizations.\n\n" +
-        "Remember, the user's provided content is the main focus. Your role is to enhance and frame it using the guidelines above, ensuring the final post is genuine, relatable, and engaging for a LinkedIn audience. VERY IMPORTANT: If you are outputting a post, do not add any commentary, do not use Markdown.";
+        "Important guidelines:\n" +
+        "- If a blog post is provided do not include too much detail from the source content. Provide just enough information to pique the reader's interest and encourage them to read the full blog post.\n" +
+        "- Use plain language and avoid buzzwords or jargon.\n" +
+        "- The user's provided content is the main focus. Your role is to enhance and frame it using the guidelines above.\n\n" +
+        "When crafting your post:\n" +
+        "1. First, analyze the user's content and identify the key points and themes.\n" +
+        "2. Think about how to present these points in an engaging way for a LinkedIn audience.\n" +
+        "3. Consider which of the provided themes and guidelines are most relevant to the content.\n" +
+        "4. Draft your post, ensuring it aligns with the writing guidelines and incorporates relevant themes.\n" +
+        "5. Review your draft to ensure it focuses primarily on the user's content and doesn't overshadow it with additional information.\n\n" +
+        "Take a step back and reflect carefully on how best to solve your task"+
+        "IMPORTANT: Output ONLY the final post. Do not include any explanations, notes, or commentary before or after the post. Do not use Markdown formatting. Do not use any tags in your output.\n" ;
     }
     
     
 
     public String generateOpenAICompletion(String userPrompt, String question) {
-        ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
-            .model("gpt-4o")
-            .messages(List.of(
-                new ChatMessage("system", userPrompt),
-                new ChatMessage("user", question)
-            ))
-            .build();
-
-        String response = openAiService.createChatCompletion(completionRequest).getChoices().get(0).getMessage().getContent();
+        String response = aiCompletionService.generateCompletion(userPrompt, question);
         return formatForLinkedIn(response);
     }
 

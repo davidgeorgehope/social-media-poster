@@ -52,10 +52,11 @@ public class ElasticsearchService {
     }
 
     // Fetch content from Elasticsearch index
-    public List<Map<String, Object>> getContentFromIndex() throws IOException {
+    public List<Map<String, Object>> getContentFromIndex(int page, int size) throws IOException {
         SearchResponse<Map<String, Object>> response = esClient.search(s -> s
                 .index("social-pilot-content")
-                .size(25) // Adjust size as needed
+                .from((page - 1) * size)
+                .size(size)
                 .sort(sort -> sort
                     .field(f -> f
                         .field("last_posted_date")
@@ -66,7 +67,6 @@ public class ElasticsearchService {
                 (Class<Map<String, Object>>)(Class<?>)Map.class
         );
 
-        // Return a list of maps that include both the document ID and its content
         return response.hits().hits().stream()
                 .map(hit -> {
                     Map<String, Object> sourceWithId = hit.source();
@@ -155,5 +155,16 @@ public class ElasticsearchService {
         } else {
             throw new RuntimeException("Content not found for id: " + id);
         }
+    }
+
+    // Add a new method to get the total number of documents
+    public long getTotalContentCount() throws IOException {
+        SearchResponse<Map<String, Object>> response = esClient.search(s -> s
+                .index("social-pilot-content")
+                .size(0),
+                (Class<Map<String, Object>>)(Class<?>)Map.class
+        );
+
+        return response.hits().total().value();
     }
 }

@@ -32,6 +32,9 @@ import java.io.ByteArrayOutputStream;
 import org.davidgeorgehope.socialmediaposter.model.ByteArrayMultipartFile;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 @Controller
 @RequestMapping("/content")
@@ -53,20 +56,26 @@ public class ContentController {
     private String mediaUploadDir;
 
     @GetMapping
-    public String listContent(Model model) throws IOException {
-        logger.error(  elasticsearchService.getContentFromIndex().toString());
+    public String listContent(Model model, 
+                              @RequestParam(defaultValue = "1") int page, 
+                              @RequestParam(defaultValue = "10") int size) throws IOException {
+        List<Map<String, Object>> content = elasticsearchService.getContentFromIndex(page, size);
+        long totalItems = elasticsearchService.getTotalContentCount();
 
-        model.addAttribute("contentList", elasticsearchService.getContentFromIndex());
+        Page<Map<String, Object>> pageContent = new PageImpl<>(content, PageRequest.of(page - 1, size), totalItems);
+
+        model.addAttribute("contentPage", pageContent);
         return "content-list";
     }
 
     @GetMapping("/edit")
     public String editContent(@RequestParam String id, Model model) throws IOException {
-        List<Map<String, Object>> contents = elasticsearchService.getContentFromIndex();
-        Map<String, Object> contentToEdit = contents.stream()
-            .filter(content -> id.equals(content.get("_id")))
-            .findFirst()
-            .orElseThrow(() -> new RuntimeException("Content not found"));
+        // Fetch the specific document by ID
+        Map<String, Object> contentToEdit = elasticsearchService.getContentById(id);
+
+        if (contentToEdit == null) {
+            throw new RuntimeException("Content not found");
+        }
 
         // Prepare media information
         String mediaUrl = (String) contentToEdit.get("mediaUrl");
@@ -126,10 +135,8 @@ public class ContentController {
     @PostMapping("/post/{id}")
     public String postToLinkedIn(@PathVariable String id, @RequestParam String email) throws IOException {
         // Fetch content by id
-        Map<String, Object> content = elasticsearchService.getContentFromIndex().stream()
-                .filter(c -> id.equals(c.get("_id")))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Content not found"));
+        Map<String, Object> content = elasticsearchService.getContentById(id);
+
 
         // Check if 'text' field exists and is a Map
         Object textObject = content.get("text");
